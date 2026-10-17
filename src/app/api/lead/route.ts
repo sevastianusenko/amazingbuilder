@@ -45,28 +45,39 @@ export async function POST(req: Request) {
 
   const subject = `Estimate request: ${lead.service || "project"} in ${lead.town || "PA"} (${lead.name})`;
 
-  // Web3Forms delivers the email. Without a key the lead is only logged (local development).
-  const key = process.env.WEB3FORMS_KEY;
+  const rows: [string, string][] = [
+    ["Name", lead.name],
+    ["Phone", lead.phone],
+    ["Email", lead.email],
+    ["Town", lead.town],
+    ["Service", lead.service],
+    ["Message", lead.message],
+    ["Page", lead.page ? `${site.url}${lead.page}` : ""],
+    ["Form", lead.source],
+  ].filter(([, v]) => v) as [string, string][];
+
+  // Resend delivers the email. LEAD_FROM must be on a domain verified in Resend; until then the
+  // resend.dev sender only delivers to the Resend account owner's address. Without a key the lead
+  // is only logged (local development).
+  const key = process.env.RESEND_API_KEY;
   if (key) {
-    const res = await fetch("https://api.web3forms.com/submit", {
+    const to = (process.env.LEAD_TO || site.email).split(",").map((s) => s.trim()).filter(Boolean);
+    const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
       body: JSON.stringify({
-        access_key: key,
+        from: process.env.LEAD_FROM || `${site.name} website <onboarding@resend.dev>`,
+        to,
+        reply_to: lead.email || undefined,
         subject,
-        from_name: `${site.name} website`,
-        name: lead.name,
-        phone: lead.phone,
-        email: lead.email || undefined,
-        town: lead.town,
-        service: lead.service,
-        message: lead.message,
-        page: `${site.url}${lead.page}`,
-        source: lead.source,
+        text: rows.map(([k, v]) => `${k}: ${v}`).join("\n"),
+        html: `<table cellpadding="6" style="font-family:Arial,sans-serif;font-size:15px">${rows
+          .map(([k, v]) => `<tr><td style="color:#666;vertical-align:top">${k}</td><td>${v.replace(/\n/g, "<br>")}</td></tr>`)
+          .join("")}</table>`,
       }),
     });
     if (!res.ok) {
-      console.error("web3forms failed", res.status, await res.text());
+      console.error("resend failed", res.status, await res.text());
       return NextResponse.json({ ok: false, error: "Could not send right now. Please call us." }, { status: 502 });
     }
   } else {

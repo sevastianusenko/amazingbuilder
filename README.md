@@ -12,7 +12,7 @@ npm run lint
 npx tsc --noEmit
 ```
 
-Set `WEB3FORMS_KEY` in `.env.local` (and in Vercel) for the lead form to deliver email. Without it the route logs the lead on the server and still returns success.
+Set `RESEND_API_KEY` in `.env.local` (and in Vercel) for the lead form to deliver email through Resend. Optional: `LEAD_TO` (comma-separated recipients, default info@amazingbuilderspa.com) and `LEAD_FROM` (a sender on a domain verified in Resend, e.g. `Amazing Builders <leads@amazingbuilderspa.com>`). Without the key the route logs the lead on the server and still returns success.
 
 ## Where things live
 

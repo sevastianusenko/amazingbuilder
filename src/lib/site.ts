@@ -24,9 +24,8 @@ export const site = {
   openingHours: ["Mo-Fr 07:00-17:00"],
   // PA Home Improvement Contractor registration. null hides every HIC line on the site.
   hic: "T002681" as string | null,
-  // Temporary number from the PA Attorney General (letter of May 4, 2026). The OAG registration system was down
-  // after a cyber incident; when the permanent number arrives, put it in `hic` and set this to null.
-  hicNote: "Temporary registration number issued by the PA Attorney General in May 2026. The permanent number replaces it once the state finishes processing." as string | null,
+  // Temporary number from the PA Attorney General (letter of May 4, 2026). Replace with the permanent number when it arrives.
+  hicNote: null as string | null, // optional line shown under the HIC number on About and Contact
   hicUrl: "https://hicsearch.attorneygeneral.gov/",
   insurer: null as string | null, // TODO
   google: {

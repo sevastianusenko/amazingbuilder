@@ -56,26 +56,33 @@ export async function POST(req: Request) {
     ["Form", lead.source],
   ].filter(([, v]) => v) as [string, string][];
 
-  // Resend delivers the email. LEAD_FROM must be on a domain verified in Resend; until then the
-  // resend.dev sender only delivers to the Resend account owner's address. Without a key the lead
-  // is only logged (local development).
+  // Resend delivers the email. LEAD_TO lists the recipients, comma-separated; put the Resend account's
+  // own address first. The sender is on our domain (LEAD_FROM to override). If Resend refuses it, for
+  // example while the domain is not verified, we retry from resend.dev, which Resend only delivers to
+  // the account owner, so the lead still reaches the first LEAD_TO address. Without a key the lead is
+  // only logged (local development).
   const key = process.env.RESEND_API_KEY;
   if (key) {
     const to = (process.env.LEAD_TO || site.email).split(",").map((s) => s.trim()).filter(Boolean);
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({
-        from: process.env.LEAD_FROM || `${site.name} website <onboarding@resend.dev>`,
-        to,
-        reply_to: lead.email || undefined,
-        subject,
-        text: rows.map(([k, v]) => `${k}: ${v}`).join("\n"),
-        html: `<table cellpadding="6" style="font-family:Arial,sans-serif;font-size:15px">${rows
-          .map(([k, v]) => `<tr><td style="color:#666;vertical-align:top">${k}</td><td>${v.replace(/\n/g, "<br>")}</td></tr>`)
-          .join("")}</table>`,
-      }),
-    });
+    const email = {
+      reply_to: lead.email || undefined,
+      subject,
+      text: rows.map(([k, v]) => `${k}: ${v}`).join("\n"),
+      html: `<table cellpadding="6" style="font-family:Arial,sans-serif;font-size:15px">${rows
+        .map(([k, v]) => `<tr><td style="color:#666;vertical-align:top">${k}</td><td>${v.replace(/\n/g, "<br>")}</td></tr>`)
+        .join("")}</table>`,
+    };
+    const send = (from: string, recipients: string[]) =>
+      fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        body: JSON.stringify({ ...email, from, to: recipients }),
+      });
+    let res = await send(process.env.LEAD_FROM || `${site.name} website <leads@amazingbuilderspa.com>`, to);
+    if (!res.ok) {
+      console.error("resend failed, retrying from resend.dev", res.status, await res.text());
+      res = await send(`${site.name} website <onboarding@resend.dev>`, to.slice(0, 1));
+    }
     if (!res.ok) {
       console.error("resend failed", res.status, await res.text());
       return NextResponse.json({ ok: false, error: "Could not send right now. Please call us." }, { status: 502 });

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { site, fullAddress } from "@/lib/site";
 import { homeFaqs } from "@/content/faq";
 import { JsonLd, breadcrumbSchema } from "@/components/Schema";
-import { LeadForm } from "@/components/LeadForm";
+import { EstimateCard } from "@/components/LeadForm";
 import { Section, Eyebrow, Breadcrumbs } from "@/components/ui/Section";
 import { Faq } from "@/components/ui/Faq";
 
@@ -30,7 +30,7 @@ export default function ContactPage() {
             <div className="lg:col-span-5">
               <Eyebrow className="mb-4">Contact</Eyebrow>
               <h1>Tell us about the room.</h1>
-              <p className="lede mt-6 text-ink-soft">Call, text or send the form. We set a time to walk through the house and you get a written estimate a few days later.</p>
+              <p className="lede mt-6 text-ink-soft">Call, text or send the form. Add a few photos and we can send a ballpark price first; for an exact number we walk through the house and you get a written estimate a few days later.</p>
               <dl className="mt-10 space-y-6">
                 <div>
                   <dt className="eyebrow">Phone</dt>
@@ -79,9 +79,7 @@ export default function ContactPage() {
               </dl>
             </div>
             <div className="lg:col-span-7">
-              <div className="rounded-card bg-primer p-6 sm:p-8">
-                <LeadForm source="contact" />
-              </div>
+              <EstimateCard source="contact" />
             </div>
           </div>
         </div>

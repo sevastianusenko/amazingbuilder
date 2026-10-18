@@ -7,7 +7,7 @@ import { towns } from "@/content/towns";
 import type { Project } from "@/content/projects";
 import { photo as getPhoto } from "@/content/photos";
 import { Photo } from "./Photo";
-import { LeadForm } from "./LeadForm";
+import { EstimateCard } from "./LeadForm";
 import { Button } from "./ui/Button";
 import { Eyebrow, Breadcrumbs } from "./ui/Section";
 
@@ -164,12 +164,12 @@ export function CtaBand({ service, source = "cta", title = "Tell us about the ro
         <Image src={p.src} alt="" fill sizes="100vw" className="object-cover" />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(20,24,27,0.85)_0%,rgba(20,24,27,0.7)_50%,rgba(20,24,27,0.55)_100%)]" aria-hidden="true" />
       </div>
-      <div className="on-dark relative mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+      <div className="relative mx-auto w-full max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
         <div className="grid gap-10 lg:grid-cols-12 lg:items-start">
-          <div className="lg:col-span-5">
+          <div className="on-dark lg:col-span-5">
             <Eyebrow className="mb-3">Free estimate</Eyebrow>
             <h2 className="text-white">{title}</h2>
-            <p className="mt-5 max-w-md">Send a few lines or call. We will set a time to walk through the house and you will have a written, itemized estimate a few days later.</p>
+            <p className="mt-5 max-w-md">Send a few lines and a couple of photos for a ballpark price, or call. For an exact number we walk through the house and send a written, itemized estimate a few days later.</p>
             <div className="mt-7">
               <Button href={site.phoneHref} variant="bronze">
                 Call {site.phone}
@@ -177,8 +177,8 @@ export function CtaBand({ service, source = "cta", title = "Tell us about the ro
             </div>
             <p className="mt-4 text-[0.9rem]">{site.hoursText}</p>
           </div>
-          <div className="rounded-card bg-paper p-6 text-ink shadow-[var(--shadow-lift)] sm:p-8 lg:col-span-7">
-            <LeadForm source={source} defaultService={service} />
+          <div className="lg:col-span-7">
+            <EstimateCard source={source} defaultService={service} />
           </div>
         </div>
       </div>

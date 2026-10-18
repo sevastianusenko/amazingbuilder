@@ -17,10 +17,32 @@ type Lead = {
 
 const clean = (v: unknown, max = 500) => (typeof v === "string" ? v.replace(/[<>]/g, "").trim().slice(0, max) : "");
 
+// Photos arrive already shrunk by the form (about 1600 px JPEG). These limits only stop abuse.
+const MAX_PHOTOS = 6;
+const MAX_PHOTO_BYTES = 3_000_000;
+
+type Attachment = { filename: string; content: string };
+
 export async function POST(req: Request) {
   let body: Lead;
+  const attachments: Attachment[] = [];
   try {
-    body = (await req.json()) as Lead;
+    if ((req.headers.get("content-type") || "").includes("multipart/form-data")) {
+      const form = await req.formData();
+      body = {};
+      for (const k of ["name", "phone", "email", "town", "service", "message", "source", "page", "company"] as const) {
+        const v = form.get(k);
+        if (typeof v === "string") body[k] = v;
+      }
+      const files = form.getAll("photos").filter((f): f is File => typeof f !== "string").slice(0, MAX_PHOTOS);
+      for (const [i, f] of files.entries()) {
+        if (!f.type.startsWith("image/") || f.size > MAX_PHOTO_BYTES) continue;
+        const ext = f.type === "image/png" ? "png" : f.type === "image/webp" ? "webp" : "jpg";
+        attachments.push({ filename: `photo-${i + 1}.${ext}`, content: Buffer.from(await f.arrayBuffer()).toString("base64") });
+      }
+    } else {
+      body = (await req.json()) as Lead;
+    }
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid request" }, { status: 400 });
   }
@@ -43,7 +65,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Name and phone are required" }, { status: 422 });
   }
 
-  const subject = `Estimate request: ${lead.service || "project"} in ${lead.town || "PA"} (${lead.name})`;
+  const subject = `Estimate request: ${lead.service || "project"} in ${lead.town || "PA"} (${lead.name})${attachments.length ? `, ${attachments.length} photo${attachments.length > 1 ? "s" : ""}` : ""}`;
 
   const rows: [string, string][] = [
     ["Name", lead.name],
@@ -54,6 +76,7 @@ export async function POST(req: Request) {
     ["Message", lead.message],
     ["Page", lead.page ? `${site.url}${lead.page}` : ""],
     ["Form", lead.source],
+    ["Photos", attachments.length ? `${attachments.length} attached` : ""],
   ].filter(([, v]) => v) as [string, string][];
 
   // Resend delivers the email. LEAD_TO lists the recipients, comma-separated; put the Resend account's
@@ -67,6 +90,7 @@ export async function POST(req: Request) {
     const email = {
       reply_to: lead.email || undefined,
       subject,
+      attachments: attachments.length ? attachments : undefined,
       text: rows.map(([k, v]) => `${k}: ${v}`).join("\n"),
       html: `<table cellpadding="6" style="font-family:Arial,sans-serif;font-size:15px">${rows
         .map(([k, v]) => `<tr><td style="color:#666;vertical-align:top">${k}</td><td>${v.replace(/\n/g, "<br>")}</td></tr>`)
@@ -88,7 +112,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Could not send right now. Please call us." }, { status: 502 });
     }
   } else {
-    console.log("[lead]", subject, JSON.stringify(lead));
+    console.log("[lead]", subject, JSON.stringify(lead), attachments.map((a) => `${a.filename} ${Math.round((a.content.length * 3) / 4 / 1024)} KB`));
   }
 
   return NextResponse.json({ ok: true });

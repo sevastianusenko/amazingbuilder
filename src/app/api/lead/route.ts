@@ -13,9 +13,15 @@ type Lead = {
   source?: string;
   page?: string;
   company?: string;
+  elapsed?: string | number; // ms between the form appearing and the submit
 };
 
 const clean = (v: unknown, max = 500) => (typeof v === "string" ? v.replace(/[<>]/g, "").trim().slice(0, max) : "");
+
+// Spam filters. A person needs more than a few seconds to fill the form; scripts that post straight to
+// this route send no timing at all. Links are the signature of SEO spam; a homeowner almost never needs one.
+const MIN_FILL_MS = 3000;
+const LINK = /(https?:\/\/|www\.|\[url|<a\s|\b[a-z0-9-]+\.(com|net|org|info|biz|ru|xyz|top|site|online|shop|io|co)\b)/i;
 
 // Photos arrive already shrunk by the form (about 1600 px JPEG). These limits only stop abuse.
 const MAX_PHOTOS = 6;
@@ -30,7 +36,7 @@ export async function POST(req: Request) {
     if ((req.headers.get("content-type") || "").includes("multipart/form-data")) {
       const form = await req.formData();
       body = {};
-      for (const k of ["name", "phone", "email", "town", "service", "message", "source", "page", "company"] as const) {
+      for (const k of ["name", "phone", "email", "town", "service", "message", "source", "page", "company", "elapsed"] as const) {
         const v = form.get(k);
         if (typeof v === "string") body[k] = v;
       }
@@ -47,8 +53,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Invalid request" }, { status: 400 });
   }
 
-  // Honeypot: bots fill the hidden company field. Pretend success.
+  // Honeypot: bots fill the hidden company field. Pretend success so they do not adapt.
   if (clean(body.company, 10)) return NextResponse.json({ ok: true });
+
+  // Time trap: missing or too-fast timing means a script. Same silent success.
+  const elapsed = Number(body.elapsed);
+  if (!Number.isFinite(elapsed) || elapsed < MIN_FILL_MS) {
+    console.log("[lead] dropped: filled in", body.elapsed ?? "no timing", "ms");
+    return NextResponse.json({ ok: true });
+  }
 
   const lead = {
     name: clean(body.name, 120),
@@ -63,6 +76,16 @@ export async function POST(req: Request) {
 
   if (!lead.name || lead.phone.replace(/\D/g, "").length < 10) {
     return NextResponse.json({ ok: false, error: "Name and phone are required" }, { status: 422 });
+  }
+
+  // A link in the name or town is always spam: drop it quietly.
+  if (LINK.test(lead.name) || LINK.test(lead.town)) {
+    console.log("[lead] dropped: link in name or town");
+    return NextResponse.json({ ok: true });
+  }
+  // A link in the message gets a visible error, so a real person can remove it and resend.
+  if (LINK.test(lead.message)) {
+    return NextResponse.json({ ok: false, error: "Please remove links from the message. You can attach photos instead." }, { status: 422 });
   }
 
   const subject = `Estimate request: ${lead.service || "project"} in ${lead.town || "PA"} (${lead.name})${attachments.length ? `, ${attachments.length} photo${attachments.length > 1 ? "s" : ""}` : ""}`;

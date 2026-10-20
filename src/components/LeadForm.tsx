@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { site } from "@/lib/site";
 import { services } from "@/content/services";
 import { Button } from "./ui/Button";
@@ -50,6 +50,11 @@ export function LeadForm({
   const [shots, setShots] = useState<Shot[]>([]);
   const [busy, setBusy] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  // When the form appeared, for the server's time trap (bots submit within a second).
+  const shownAt = useRef(0);
+  useEffect(() => {
+    shownAt.current = Date.now();
+  }, []);
 
   async function addPhotos(files: FileList | null) {
     if (!files?.length) return;
@@ -100,6 +105,7 @@ export function LeadForm({
       body.set("phone", phone);
       body.set("source", source);
       body.set("page", typeof window !== "undefined" ? window.location.pathname : "");
+      body.set("elapsed", String(shownAt.current ? Date.now() - shownAt.current : 0));
       let total = 0;
       for (const s of shots) {
         if (total + s.blob.size > MAX_TOTAL) break;
